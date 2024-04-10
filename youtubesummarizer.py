@@ -5,6 +5,7 @@ import os
 from scenedetect import VideoManager, SceneManager
 from scenedetect.detectors import ContentDetector
 import sys
+import imageio
 import warnings
 warnings.filterwarnings("ignore", category=DeprecationWarning)  # Suppress DeprecationWarnings
 
@@ -27,6 +28,40 @@ def download_video(query):
 
     print("No suitable video found.")
     return None, None
+
+
+def create_animated_gif(frames_with_paths, output_gif_path='animated_summary.gif', max_duration=10):
+    """
+    Creates an animated GIF from the provided frame paths.
+
+    :param frames_with_paths: List of tuples containing frame images and their paths.
+    :param output_gif_path: Path where the GIF should be saved.
+    :param max_duration: Maximum duration of the GIF in seconds.
+    """
+    images = []
+    for _, path in frames_with_paths:
+        images.append(imageio.imread(path))
+
+    # Calculate frame duration to evenly distribute frames within the max_duration
+    frame_duration = max_duration / len(frames_with_paths)
+
+    imageio.mimsave(output_gif_path, images, duration=frame_duration)
+    print(f"Animated GIF saved as {output_gif_path}")
+
+
+def open_gif(gif_path):
+    """
+    Opens the GIF using the default program.
+    """
+    import os
+    import platform
+    import subprocess
+
+    if platform.system() == "Windows":
+        os.startfile(gif_path)
+    else:
+        opener = "open" if platform.system() == "Darwin" else "xdg-open"
+        subprocess.call([opener, gif_path])
 
 
 def find_scenes(video_path, threshold=30):
@@ -90,7 +125,7 @@ def perform_ocr_on_frames(frames_with_paths):
     """
     Performs OCR on the given list of frames using EasyOCR.
 
-    :param frames: A list of frame images on which OCR needs to be performed.
+    :param frames_with_paths: A list of frame images on which OCR needs to be performed.
     :return: A list of strings extracted from each frame.
     """
     reader = easyocr.Reader(['en'])
@@ -114,13 +149,23 @@ def main():
         scene_list = find_scenes(video_path)
         print("Extracting frames from detected scenes...")
         frames_with_paths = extract_frames(video_path, scene_list)
-        print("Adding watermarks to frames...")
-        add_watermark(frames_with_paths)
         print("Performing OCR on extracted frames...")
         texts = perform_ocr_on_frames(frames_with_paths)
 
         for i, text in enumerate(texts, start=1):
             print(f"Text from Frame {i}: {text}")
+
+        print("Adding watermarks to frames...")
+        add_watermark(frames_with_paths)
+
+        print("Creating animated GIF from frames...")
+        create_animated_gif(frames_with_paths)
+
+        concatenated_text = ' '.join(perform_ocr_on_frames(frames_with_paths))
+        print("Concatenated Text from All Frames:", concatenated_text)
+
+        print("Opening animated GIF...")
+        open_gif('animated_summary.gif')
 
         print("Summary creation complete.")
 
