@@ -1,10 +1,8 @@
-from pytube import Search
-from pytube import YouTube
+from pytube import Search, YouTube
 import cv2
 import easyocr
 import os
-from scenedetect import VideoManager
-from scenedetect import SceneManager
+from scenedetect import VideoManager, SceneManager
 from scenedetect.detectors import ContentDetector
 
 
@@ -43,38 +41,45 @@ def find_scenes(video_path, threshold=30):
 
     return scene_manager.get_scene_list(base_timecode=video_manager.get_base_timecode())
 
-def extract_frames(video_path, scene_list):
+
+def extract_frames(video_path, scene_list, output_dir='./images'):
     """
     Extracts key frames based on scene list.
 
+    :param output_dir:
     :param video_path: Path to the video file.
     :param scene_list: List of scenes to extract frames from.
     :return: A list of frame images.
     """
     cap = cv2.VideoCapture(video_path)
     frames = []
-    for start_time, end_time in scene_list:
+    for index, (start_time, _) in enumerate(scene_list):
         cap.set(cv2.CAP_PROP_POS_MSEC, (start_time.get_seconds() * 1000))
         ret, frame = cap.read()
+
         if ret:
-            frames.append(frame)
+            frame_path = os.path.join(output_dir, f"frame_{index + 1}.jpg")
+            cv2.imwrite(frame_path, frame)  # Save frame as JPEG file
+            frames.append((frame, frame_path))
+
     cap.release()
     return frames
 
-def add_watermark(frames, watermark_text="Idan Yehiel"):
-    """
-    Adds a watermark to the bottom right corner of each frame.
 
-    :param frames: List of frame images.
+def add_watermark(frames_with_paths, watermark_text="Idan Yehiel"):
+    """
+    Adds a watermark to the bottom right corner of each frame and saves the modified frame.
+
+    :param frames_with_paths: List of tuples containing frame images and their paths.
     :param watermark_text: Text to use as the watermark.
-    :return: List of frames with watermarks added.
     """
-    for i in range(len(frames)):
-        cv2.putText(frames[i], watermark_text, (frames[i].shape[1] - 200, frames[i].shape[0] - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
+    for frame, path in frames_with_paths:
+        cv2.putText(frame, watermark_text, (frame.shape[1] - 200, frame.shape[0] - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.7,
+                    (255, 255, 255), 2)
+        cv2.imwrite(path, frame)  # Save the watermarked frame back to the file
 
-    return frames
 
-def perform_ocr_on_frames(frames):
+def perform_ocr_on_frames(frames_with_paths):
     """
     Performs OCR on the given list of frames using EasyOCR.
 
@@ -84,7 +89,8 @@ def perform_ocr_on_frames(frames):
     reader = easyocr.Reader(['en'])
     extracted_texts = []
 
-    for frame in frames:
+    for _, path in frames_with_paths:
+        frame = cv2.imread(path)  # Read the frame from file
         result = reader.readtext(frame)
         texts = ' '.join([text[1] for text in result])
         extracted_texts.append(texts)
@@ -94,16 +100,17 @@ def perform_ocr_on_frames(frames):
 
 def main():
     subject = input("Please enter a subject for the video: ")
-    video_title = download_video(subject)
+    video_title, video_path = download_video(subject)
 
     if video_title:
         print(f"Video '{video_title}' downloaded. Detecting scenes...")
         scene_list = find_scenes(video_path)
-        print(f"Extracting frames from detected scenes...")
-        frames = extract_frames(video_path, scene_list)
-        frames_with_watermarks = add_watermark(frames)
+        print("Extracting frames from detected scenes...")
+        frames_with_paths = extract_frames(video_path, scene_list)
+        print("Adding watermarks to frames...")
+        add_watermark(frames_with_paths)
         print("Performing OCR on extracted frames...")
-        texts = perform_ocr_on_frames(frames_with_watermarks)
+        texts = perform_ocr_on_frames(frames_with_paths)
 
         for i, text in enumerate(texts, start=1):
             print(f"Text from Frame {i}: {text}")
