@@ -4,6 +4,13 @@ import easyocr
 import os
 from scenedetect import VideoManager, SceneManager
 from scenedetect.detectors import ContentDetector
+import sys
+import warnings
+warnings.filterwarnings("ignore", category=DeprecationWarning)  # Suppress DeprecationWarnings
+
+# Suppressing other warnings (e.g., CUDA/MPS availability from easyocr)
+original_stderr = sys.stderr  # Backup original stderr
+sys.stderr = open(os.devnull, 'w')  # Redirect stderr to devnull
 
 
 def download_video(query):
@@ -119,4 +126,8 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    finally:
+        sys.stderr.close()
+        sys.stderr = original_stderr  # Restore original stderr after execution
