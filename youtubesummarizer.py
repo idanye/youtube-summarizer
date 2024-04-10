@@ -64,24 +64,36 @@ def open_gif(gif_path):
         subprocess.call([opener, gif_path])
 
 
-def find_scenes(video_path, threshold=30):
+def find_scenes(video_path, threshold=30, min_scene_length_seconds=0.5):
     """
     Finds scenes in a video using PySceneDetect.
 
     :param video_path: Path to the video file.
     :param threshold: Sensitivity threshold for scene detection.
+    :param min_scene_length_seconds: Minimum length of a scene in seconds.
     :return: A list of frame numbers where scenes change.
     """
+    # First, use OpenCV to get the frame rate of the video
+    cap = cv2.VideoCapture(video_path)
+    fps = cap.get(cv2.CAP_PROP_FPS)
+    cap.release()  # Don't forget to release the video capture
+
+    # Now proceed with PySceneDetect's VideoManager and SceneManager
     video_manager = VideoManager([video_path])
     scene_manager = SceneManager()
-    scene_manager.add_detector(ContentDetector(threshold=threshold))
 
-    video_manager.set_downscale_factor()
+    # Calculate the minimum scene length in frames using the obtained frame rate
+    min_scene_length_frames = int(fps * min_scene_length_seconds)
+
+    # Add a content detector with the specified threshold and minimum scene length
+    scene_manager.add_detector(ContentDetector(threshold=threshold, min_scene_len=min_scene_length_frames))
+
+    # Start processing the video
     video_manager.start()
-
     scene_manager.detect_scenes(frame_source=video_manager)
 
-    return scene_manager.get_scene_list(base_timecode=video_manager.get_base_timecode())
+    # Return the list of detected scenes
+    return scene_manager.get_scene_list(video_manager.get_base_timecode())
 
 
 def extract_frames(video_path, scene_list, output_dir='./images'):
@@ -161,7 +173,7 @@ def main():
         print("Creating animated GIF from frames...")
         create_animated_gif(frames_with_paths)
 
-        concatenated_text = ' '.join(perform_ocr_on_frames(frames_with_paths))
+        concatenated_text = ' '.join(texts)
         print("Concatenated Text from All Frames:", concatenated_text)
 
         print("Opening animated GIF...")
