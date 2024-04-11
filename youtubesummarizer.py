@@ -5,7 +5,7 @@ import os
 from scenedetect import VideoManager, SceneManager
 from scenedetect.detectors import ContentDetector
 import sys
-import imageio
+import imageio.v2 as imageio
 import warnings
 warnings.filterwarnings("ignore", category=DeprecationWarning)  # Suppress DeprecationWarnings
 
@@ -78,7 +78,7 @@ def find_scenes(video_path, threshold=30, min_scene_length_seconds=0.5):
     fps = cap.get(cv2.CAP_PROP_FPS)
     cap.release()  # Don't forget to release the video capture
 
-    # Now proceed with PySceneDetect's VideoManager and SceneManager
+    # Now proceed with PySceneDetects VideoManager and SceneManager
     video_manager = VideoManager([video_path])
     scene_manager = SceneManager()
 
@@ -173,8 +173,10 @@ def main():
         print("Creating animated GIF from frames...")
         create_animated_gif(frames_with_paths)
 
-        concatenated_text = ' '.join(texts)
-        print("Concatenated Text from All Frames:", concatenated_text)
+        concatenated_text = ' '.join(texts)  # Original line, results in redundant spaces
+        # Normalize the spacing by splitting and re-joining the text
+        normalized_text = ' '.join(concatenated_text.split())
+        print("Concatenated Text from All Frames:", normalized_text)
 
         print("Opening animated GIF...")
         open_gif('animated_summary.gif')
