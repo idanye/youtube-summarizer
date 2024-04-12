@@ -105,6 +105,9 @@ def extract_frames(video_path, scene_list, output_dir='./images'):
     :param scene_list: List of scenes to extract frames from.
     :return: A list of frame images.
     """
+    # Ensure the output directory exists
+    os.makedirs(output_dir, exist_ok=True)  # This line creates the directory if it does not exist
+
     cap = cv2.VideoCapture(video_path)
     frames = []
     for index, (start_time, _) in enumerate(scene_list):
